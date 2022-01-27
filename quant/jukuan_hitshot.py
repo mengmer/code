@@ -9,7 +9,6 @@ import logging as log
 import pandas as pd
 from typing import Dict, Optional, List, Any
 
-help_stock = []
 
 # 初始化函数，设定基准等等
 def initialize(context):
@@ -45,15 +44,15 @@ buy_bool = False
 
 
 ## 开盘时运行函数
-def market_run(context):
+def market_run(context, trade_stock_list):
     time_buy = context.current_dt.strftime('%H:%M:%S')
-    aday = datetime.datetime.strptime('10:30:00', '%H:%M:%S').strftime('%H:%M:%S')
+    aday = datetime.strptime('10:30:00', '%H:%M:%S').strftime('%H:%M:%S')
     now = context.current_dt
-    zeroToday = now - datetime.timedelta(hours=now.hour, minutes=now.minute, seconds=now.second,
+    zeroToday = now - timedelta(hours=now.hour, minutes=now.minute, seconds=now.second,
                                          microseconds=now.microsecond)
-    lastToday = zeroToday + datetime.timedelta(hours=9, minutes=31, seconds=00)
-    if len(help_stock) > 0:
-        for stock in help_stock:
+    lastToday = zeroToday + timedelta(hours=9, minutes=31, seconds=00)
+    if len(trade_stock_list) > 0:
+        for stock in trade_stock_list:
             # log.info("当前时间 %s" % (context.current_dt))
             # log.info("股票 %s 的最新价: %f" % (stock, get_current_data()[stock].last_price))
             cash = context.portfolio.available_cash
@@ -63,21 +62,21 @@ def market_run(context):
             day_high_limit = get_current_data()[stock].high_limit
             pre_date = (context.current_dt + timedelta(days=-1)).strftime("%Y-%m-%d")
             df_panel = get_price(stock, count=1, end_date=pre_date, frequency='daily',
-                                 fields=['open', 'high', 'close', 'low', 'high_limit', 'money', 'pre_close'])
+                                 fields=['open', 'high', 'close', 'low', 'high_limit', 'money', 'pre_close'], panel=False)
             pre_high = df_panel['high'].values
             pre_close = df_panel['close'].values
             df_panel_all = get_price(stock, start_date=lastToday, end_date=context.current_dt, frequency='minute',
-                                     fields=['high', 'low', 'close', 'high_limit', 'money'])
+                                     fields=['high', 'low', 'close', 'high_limit', 'money'], panel=False)
             df_min_low_all = df_panel_all.loc[:, "close"].min()
             df_max_high_all = df_panel_all.loc[:, "close"].max()
             count_max = (df_panel_all.loc[:, 'close'] == df_panel_all.loc[:, 'high_limit']).sum()
 
             if cash > 5000 and count_max > 3:
                 if current_price > pre_close * 1.07 and current_price < day_high_limit and day_open_price < day_high_limit * 0.98:
-                    # open_cash = cash / len(help_stock)
+                    # open_cash = cash / len(trade_stock_list)
                     print(stock + "1.买入金额" + str(cash))
                     order_value(stock, cash)
-                    help_stock.remove(stock)
+                    trade_stock_list.remove(stock)
 
     time_sell = context.current_dt.strftime('%H:%M:%S')
     cday = datetime.datetime.strptime('14:40:00', '%H:%M:%S').strftime('%H:%M:%S')
@@ -99,13 +98,13 @@ def market_run(context):
 
                 # 查询当天的最高价
                 df_panel_allday = get_price(stock_two, start_date=lastToday, end_date=context.current_dt,
-                                            frequency='minute', fields=['high', 'low', 'close', 'high_limit', 'money'])
+                                            frequency='minute', fields=['high', 'low', 'close', 'high_limit', 'money'], panel=False)
                 low_allday = df_panel_allday.loc[:, "low"].min()
                 high_allday = df_panel_allday.loc[:, "high"].max()
                 ##获取前一天的收盘价
                 pre_date = (context.current_dt + timedelta(days=-1)).strftime("%Y-%m-%d")
                 df_panel = get_price(stock_two, count=1, end_date=pre_date, frequency='daily',
-                                     fields=['open', 'close', 'high_limit', 'money', 'low', ])
+                                     fields=['open', 'close', 'high_limit', 'money', 'low', ], panel=False)
                 pre_low_price = df_panel['low'].values
                 pre_close_price = df_panel['close'].values
                 num_limit_stock = count_limit_num_all(stock_two, context)
@@ -136,13 +135,13 @@ def market_run(context):
 
                 # 查询当天的最高价
                 df_panel_allday = get_price(stock_two, start_date=lastToday, end_date=context.current_dt,
-                                            frequency='minute', fields=['high', 'low', 'close', 'high_limit', 'money'])
+                                            frequency='minute', fields=['high', 'low', 'close', 'high_limit', 'money'], panel=False)
                 low_allday = df_panel_allday.loc[:, "low"].min()
                 high_allday = df_panel_allday.loc[:, "high"].max()
                 ##获取前一天的收盘价
                 pre_date = (context.current_dt + timedelta(days=-1)).strftime("%Y-%m-%d")
                 df_panel = get_price(stock_two, count=1, end_date=pre_date, frequency='daily',
-                                     fields=['open', 'close', 'high_limit', 'money', 'low', ])
+                                     fields=['open', 'close', 'high_limit', 'money', 'low', ], panel=False)
                 pre_low_price = df_panel['low'].values
                 pre_close_price = df_panel['close'].values
                 num_limit_stock = count_limit_num_all(stock_two, context)
@@ -160,10 +159,10 @@ def market_run(context):
 
     time_sell = context.current_dt.strftime('%H:%M:%S')
     cday = datetime.datetime.strptime('14:45:00', '%H:%M:%S').strftime('%H:%M:%S')
-    if time_sell > cday and len(help_stock) > 0:
-        instead_stock = help_stock
+    if time_sell > cday and len(trade_stock_list) > 0:
+        instead_stock = trade_stock_list
         for stock_remove in instead_stock:
-            help_stock.remove(stock_remove)
+            trade_stock_list.remove(stock_remove)
 
 def stocks_filter(df_stocks = None):
     '''
@@ -191,9 +190,15 @@ def before_market_open(context):
     :param context: 输入context对象
     :return: 开盘前运行函数
     '''
+    trade_stock_list = []
     yesterday = (context.current_dt + timedelta(days=-1)).strftime("%Y-%m-%d")  # '2021-01-15'#datetime.datetime.now()
     yesterday_a_month_ago = (context.current_dt + timedelta(days=-30)).strftime("%Y-%m-%d")
     trade_date = get_trade_days(start_date=yesterday_a_month_ago, end_date=yesterday, count=None)
+    trade_date_3_years = get_trade_days(start_date='2020-01-01', end_date='2022-01-01', count=None)
+    df_trade_date_3_years = pd.DataFrame(trade_date_3_years)
+    df_trade_date_3_years[0] = pd.to_datetime(df_trade_date_3_years[0])
+
+    # df_trade_date = df_trade_date_3_years[context.current_dt:context.current_dt]
 
     # 选取股票池, 并剔除ST、退市、科创板股票 todo：剔除上市1080天之前的股票
     df_all_stocks = stocks_filter()
@@ -201,7 +206,7 @@ def before_market_open(context):
     # 获取股票的日线数据
     all_stocks_list = df_all_stocks['code'].tolist()
     df_stocks = get_price(all_stocks_list, count=2, end_date=yesterday, frequency='daily',
-                         fields=['open', 'close', 'high_limit', 'money', 'pre_close'])
+                         fields=['open', 'close', 'high_limit', 'money', 'pre_close'], panel=False)
 
     # 选取连板股票
     # 1. 如果收盘价=涨停价，并且涨停价大于105%昨日收盘价，收盘价>105%开盘价
@@ -223,17 +228,16 @@ def before_market_open(context):
     for stock_flat in stock_limit_2_list:
         bool_result = filter_flat_stock(stock_flat, last_trade_date, last_2_trade_date)
         if bool_result == True:
-            help_stock.append(stock_flat)
+            trade_stock_list.append(stock_flat)
 
-    print("----------------最后被选出的股票-----------")
-    print(help_stock)
+    return trade_stock_list
 
 
 ##选出打板的股票
 def pick_high_limit(stocks, end_date):
     # 提取日线数据
     df_panel = get_price(stocks, count=1, end_date=end_date, frequency='daily',
-                         fields=['open', 'close', 'high_limit', 'money', 'pre_close'])
+                         fields=['open', 'close', 'high_limit', 'money', 'pre_close'], panel=False)
     # 选出打板股票
     df_high_limit_stock = df_panel[(df_panel.close == df_panel.high_limit) &
                                    (df_panel.high_limit >= df_panel.pre_close * 1.05) &
@@ -248,7 +252,7 @@ def pick_high_limit(stocks, end_date):
 def filter_flat_stock(stock, end_date, pre_date):
     # 查询昨天的涨停价格
     df_panel = get_price(stock, count=1, end_date=end_date, frequency='daily',
-                         fields=['open', 'close', 'high_limit', 'money'])
+                         fields=['open', 'close', 'high_limit', 'money'], panel=False)
     df_close = df_panel['close'].values
     df_open = df_panel['open'].values
     df_high_limit = df_panel['high_limit'].values
@@ -256,7 +260,7 @@ def filter_flat_stock(stock, end_date, pre_date):
 
     # 20天的波动率
     df_panel_10 = get_price(stock, count=10, end_date=pre_date, frequency='daily',
-                            fields=['open', 'close', 'high_limit', 'money', 'high', 'low'])
+                            fields=['open', 'close', 'high_limit', 'money', 'high', 'low'], panel=False)
     # 最高价 = 涨停价的个数
     sum_plus_num_two = (df_panel_10.loc[:, 'high'] == df_panel_10.loc[:, 'high_limit']).sum()
     # 10天最高价的 最高
@@ -271,7 +275,7 @@ def filter_flat_stock(stock, end_date, pre_date):
     abs_sum_num_1055 = (abs_sum_10 < 0.055).sum() # 波动率5.5%
 
     df_panel_20 = get_price(stock, count=20, end_date=pre_date, frequency='daily',
-                            fields=['open', 'close', 'high_limit', 'money', 'high', 'low'])
+                            fields=['open', 'close', 'high_limit', 'money', 'high', 'low'], panel=False)
     # 最高价 = 涨停价 收盘价<=涨停价 97%
     sum_shipan_num = ((df_panel_20.loc[:, 'high_limit'] == df_panel_20.loc[:, 'high']) * (
             df_panel_20.loc[:, 'close'] <= df_panel_20.loc[:, 'high_limit'] * 0.97)).sum()
@@ -285,7 +289,7 @@ def filter_flat_stock(stock, end_date, pre_date):
     abs_sum_num_2055 = (abs_sum_20 < 0.055).sum()
 
     df_panel_30 = get_price(stock, count=30, end_date=pre_date, frequency='daily',
-                            fields=['open', 'close', 'high_limit', 'money', 'high', 'low'])
+                            fields=['open', 'close', 'high_limit', 'money', 'high', 'low'], panel=False)
     df_max_high_30 = df_panel_30["high"].max()
     df_min_low_30 = df_panel_30["low"].min()
     rate_30 = (df_max_high_30 - df_min_low_30) / df_min_low_30
@@ -295,7 +299,7 @@ def filter_flat_stock(stock, end_date, pre_date):
     # print(stock+"收盘价的方差为："+str(std_allday))
     # 60天的波动率
     df_panel_60 = get_price(stock, count=60, end_date=pre_date, frequency='daily',
-                            fields=['open', 'close', 'high_limit', 'money', 'high', 'low'])
+                            fields=['open', 'close', 'high_limit', 'money', 'high', 'low'], panel=False)
     high_allday_60 = df_panel_60.loc[:, "high"].max()
     low_allday_60 = df_panel_60.loc[:, "low"].min()
     close_allday_60 = df_panel_60.loc[:, "close"].max()
@@ -308,12 +312,12 @@ def filter_flat_stock(stock, end_date, pre_date):
     sum_plus_num_60 = (df_panel_60.loc[:, 'high'] > df_panel_60.loc[:, 'high_limit'] * 0.99).sum()
 
     df_panel_100 = get_price(stock, count=100, end_date=pre_date, frequency='daily',
-                             fields=['open', 'close', 'high_limit', 'money', 'high', 'low'])
+                             fields=['open', 'close', 'high_limit', 'money', 'high', 'low'], panel=False)
     df_max_close_100 = df_panel_100["close"].max()
 
     # 150天的波动率
     df_panel_150 = get_price(stock, count=150, end_date=pre_date, frequency='daily',
-                             fields=['open', 'close', 'high_limit', 'money', 'high', 'low', 'pre_close'])
+                             fields=['open', 'close', 'high_limit', 'money', 'high', 'low', 'pre_close'], panel=False)
     sum_plus_num_150 = (df_panel_150.loc[:, 'close'] > df_panel_150.loc[:, 'pre_close'] * 1.09).sum()
     df_max_close_150 = df_panel_150["close"].max()
     df_max_open_150 = df_panel_150["open"].max()
@@ -344,7 +348,9 @@ def filter_flat_stock(stock, end_date, pre_date):
         print(abs_sum_num_1503)
         print(abs_sum_num_1515)
         print(abs_sum_num_15555)
+        # 如果收盘价*1.1>60天的最高收盘价，20波动率<1.5%的大于7天，20日波动率<3%的大于15天，20波动率<5.5%的小于18天，
     if df_close * 1.1 > close_allday_60 and abs_sum_num_2030 > 15 and abs_sum_num_2015 > 7 and abs_sum_num_2055 >= 18:
+        # 60日波动率<1.5%的大于28天，20波动率<3%的大于45天，20波动率<5.5%的大于50天，
         if abs_sum_num_6015 >= 28 and abs_sum_num_6030 > 45 and abs_sum_num_6055 > 50:
             return True
 
@@ -369,7 +375,7 @@ def count_limit_num_all(stock, context):
     limit_num = 0
     for datenum in trade_date:
         df_panel = get_price(stock, count=1, end_date=datenum, frequency='daily',
-                             fields=['open', 'close', 'high_limit', 'money'])
+                             fields=['open', 'close', 'high_limit', 'money'], panel=False)
         df_close = df_panel['close'].values
         df_high_limit = df_panel['high_limit'].values
         if df_close == df_high_limit:
@@ -386,29 +392,22 @@ def get_circulating_market_cap(stock_list):
     return market_cap
 
 
-def count_limit_num(stock, context):
-    date_now = (context.current_dt + timedelta(days=-1)).strftime("%Y-%m-%d")  # '2021-01-15'#datetime.datetime.now()
-    yesterday = (context.current_dt + timedelta(days=-20)).strftime("%Y-%m-%d")
-    trade_date = get_trade_days(start_date=yesterday, end_date=date_now, count=None)
-    limit_num = 0
-    for datenum in trade_date:
-        df_panel = get_price(stock, count=1, end_date=datenum, frequency='daily',
-                             fields=['open', 'close', 'high_limit', 'money'])
-        df_close = df_panel['close'].values
-        df_high_limit = df_panel['high_limit'].values
-        if df_close == df_high_limit:
-            limit_num = limit_num + 1
-    # print("涨停板天数："+str(limit_num))
-    return limit_num
-
 
 ## 收盘后运行函数
 def after_market_close(context):
     log.info(str('除当天的股票数据-----函数运行时间(after_market_close):' + str(context.current_dt.time())))
-    # 消除当天的股票数据
-    help_stock = []
-    # print(help_stock)
 
+    # 给老婆的检讨书
+    # FIRST OF ALL I am so SORRY for breaking your heart babe
+    # 对此为自己做错的事情向老婆做出深刻检讨
+    # 1. what
+    # 我们的感情一直很好，你给我的爱是前所未有的体验，可是我的行为给我们的感情带来了不好的影响，我真的很内疚很羞愧
+    # 真的很抱歉让你失望了，我没有我以为的那么好，可是我现在很后怕因为我不想失去你，不能没有你
+    # 这两天一直在想，想很多，虽然你一直告诉我不会离开我，可是想到你对我的爱会减少心脏就会很痛
+    #
+    # 消除当天的股票数据
+    trade_stock_list = []
+    # print(trade_stock_list)
 
 class context:
     def __init__(self):
@@ -429,11 +428,14 @@ class context:
         # 子账户信息
         self.subportofolio = 1
 
+        # 给老婆的检讨书
+        # FIRST OF ALL I am so SORRY for breaking your heart babe
+
         pass
     pass
 
-auth('13602601626', 'Xm19970711')
-
-context = context()
-
-before_market_open(context=context)
+if __name__ == "__main__":
+    auth('13602601626', 'Xm19970711')
+    context = context()
+    trade_stock_list = before_market_open(context=context)
+    market_run(context, trade_stock_list)
