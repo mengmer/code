@@ -10,11 +10,14 @@ import pandas as pd
 from typing import Dict, Optional, List, Any
 
 ## 模拟聚宽context
-class context:
+class portfolio:
     def __init__(self):
-        # 持仓
-        self.portofolio = {}
+        self.available_cash = 10000
 
+class context():
+    def __init__(self):
+
+        self.portfolio = portfolio()
         # 运行参数
         self.run_params = 1
 
@@ -33,10 +36,7 @@ class context:
         # 子账户信息
         self.subportofolio = 1
 
-        # 给老婆的检讨书
-        # FIRST OF ALL I am so SORRY for breaking your heart babe
 
-        pass
     pass
 
 ## 初始化函数，设定基准等等
@@ -108,13 +108,15 @@ def before_market_open(context):
 
 ## 开盘时运行函数
 def market_run(context, trade_stock_list):
-    time_buy = context.current_dt.strftime('%H:%M:%S')
-    aday = datetime.strptime('10:30:00', '%H:%M:%S').strftime('%H:%M:%S')
+    time_now = context.current_dt.strftime('%H:%M:%S')
+    time_1030 = datetime.strptime('10:30:00', '%H:%M:%S').strftime('%H:%M:%S')
     now = context.current_dt
-    zeroToday = now - timedelta(hours=now.hour, minutes=now.minute, seconds=now.second,
+    time_today_zero = now - timedelta(hours=now.hour, minutes=now.minute, seconds=now.second,
                                          microseconds=now.microsecond)
 
-    lastToday = zeroToday + timedelta(hours=9, minutes=31, seconds=00)
+    time_today_931 = time_today_zero + timedelta(hours=9, minutes=31, seconds=00)
+    # trade_stock_list = ['000665.XSHE']
+    # 买入
     if len(trade_stock_list) > 0:
         for stock in trade_stock_list:
             # log.info("当前时间 %s" % (context.current_dt))
@@ -129,64 +131,68 @@ def market_run(context, trade_stock_list):
                                  fields=['open', 'high', 'close', 'low', 'high_limit', 'money', 'pre_close'], panel=False)
             pre_high = df_panel['high'].values
             pre_close = df_panel['close'].values
-            df_panel_all = get_price(stock, start_date=lastToday, end_date=context.current_dt, frequency='minute',
+            df_panel_all = get_price(stock, start_date=time_today_931, end_date=context.current_dt, frequency='minute',
                                      fields=['high', 'low', 'close', 'high_limit', 'money'], panel=False)
-            df_min_low_all = df_panel_all.loc[:, "close"].min()
-            df_max_high_all = df_panel_all.loc[:, "close"].max()
+            min_close_price = df_panel_all.loc[:, "close"].min()
+            max_close_price = df_panel_all.loc[:, "close"].max()
+            # 分钟行情中有几次打到板
             count_max = (df_panel_all.loc[:, 'close'] == df_panel_all.loc[:, 'high_limit']).sum()
 
             if cash > 5000 and count_max > 3:
+                # 当前价格>昨日收盘价1.07 & 当前价格<股票涨停价 & 开盘价小于涨停价的98% 防止打不进去
                 if current_price > pre_close * 1.07 and current_price < day_high_limit and day_open_price < day_high_limit * 0.98:
                     # open_cash = cash / len(trade_stock_list)
                     print(stock + "1.买入金额" + str(cash))
+                    # 用现金全部买入
                     order_value(stock, cash)
                     trade_stock_list.remove(stock)
 
     time_sell = context.current_dt.strftime('%H:%M:%S')
-    cday = datetime.datetime.strptime('14:40:00', '%H:%M:%S').strftime('%H:%M:%S')
-    dday = datetime.datetime.strptime('10:30:00', '%H:%M:%S').strftime('%H:%M:%S')
-    now = context.current_dt
-    zeroToday = now - datetime.timedelta(hours=now.hour, minutes=now.minute, seconds=now.second,
-                                         microseconds=now.microsecond)
-    lastToday = zeroToday + datetime.timedelta(hours=9, minutes=30, seconds=00)
-    if time_sell > cday:
-        stock_owner = context.portfolio.positions
-        if len(stock_owner) > 0:
-            for stock_two in stock_owner:
-                current_price_list = get_ticks(stock_two, start_dt=None, end_dt=context.current_dt, count=1,
+    time_1440 = datetime.strptime('14:40:00', '%H:%M:%S').strftime('%H:%M:%S')
+
+    # 下午14：40分之后卖出
+    if time_sell > time_1440:
+        portfolio_stock_list = context.portfolio.positions
+        if len(portfolio_stock_list) > 0:
+            for sell_stock in portfolio_stock_list:
+                current_price_list = get_ticks(sell_stock, start_dt=None, end_dt=context.current_dt, count=1,
                                                fields=['time', 'current', 'high', 'low', 'volume', 'money'])
                 current_price = current_price_list['current'][0]
-                day_open_price = get_current_data()[stock_two].day_open
-                day_high_limit = get_current_data()[stock_two].high_limit
-                day_low_limit = get_current_data()[stock_two].low_limit
+                day_open_price = get_current_data()[sell_stock].day_open
+                day_high_limit = get_current_data()[sell_stock].high_limit
+                day_low_limit = get_current_data()[sell_stock].low_limit
 
                 # 查询当天的最高价
-                df_panel_allday = get_price(stock_two, start_date=lastToday, end_date=context.current_dt,
+                df_panel_allday = get_price(sell_stock, start_date=time_today_931, end_date=context.current_dt,
                                             frequency='minute', fields=['high', 'low', 'close', 'high_limit', 'money'], panel=False)
-                low_allday = df_panel_allday.loc[:, "low"].min()
-                high_allday = df_panel_allday.loc[:, "high"].max()
+                min_low_price = df_panel_allday.loc[:, "low"].min()
+                max_high_price = df_panel_allday.loc[:, "high"].max()
                 ##获取前一天的收盘价
                 pre_date = (context.current_dt + timedelta(days=-1)).strftime("%Y-%m-%d")
-                df_panel = get_price(stock_two, count=1, end_date=pre_date, frequency='daily',
+                df_panel = get_price(sell_stock, count=1, end_date=pre_date, frequency='daily',
                                      fields=['open', 'close', 'high_limit', 'money', 'low', ], panel=False)
                 pre_low_price = df_panel['low'].values
                 pre_close_price = df_panel['close'].values
-                num_limit_stock = count_limit_num_all(stock_two, context)
+                # 30日行情中有几次打到板
+                num_limit_stock = count_limit_num_all(sell_stock, context)
                 # 平均持仓成本
-                cost = context.portfolio.positions[stock_two].avg_cost
+                cost = context.portfolio.positions[sell_stock].avg_cost
                 # print("----------------------------------")
                 # print("current_price="+str(current_price))
                 # print("day_open_price="+str(day_open_price))
                 # print("pre_close_price="+str(pre_close_price))
                 # print("df_max_high="+str(df_max_high))
                 # print("=====================================")
-                if current_price < high_allday * 0.97 and current_price > day_low_limit:
+                # 如果当前价格<最高价的0.97 & 当前价格>一日最低价
+                if current_price < max_high_price * 0.97 and current_price > day_low_limit:
                     print("1.卖出股票：小于最高价0.97倍" + str(num_limit_stock))
-                    order_target(stock_two, 0)
+                    order_target(sell_stock, 0)
                 elif current_price < cost * 0.93 and current_price < day_open_price and current_price > day_low_limit:
                     print("卖出股票：比开盘价低7个点" + str(num_limit_stock))
-                    order_target(stock_two, 0)
-    elif time_sell > dday:
+                    order_target(sell_stock, 0)
+
+    # 上午10：30分之后卖出
+    elif time_sell > time_1030:
         stock_owner = context.portfolio.positions
         if len(stock_owner) > 0:
             for stock_two in stock_owner:
@@ -200,8 +206,8 @@ def market_run(context, trade_stock_list):
                 # 查询当天的最高价
                 df_panel_allday = get_price(stock_two, start_date=lastToday, end_date=context.current_dt,
                                             frequency='minute', fields=['high', 'low', 'close', 'high_limit', 'money'], panel=False)
-                low_allday = df_panel_allday.loc[:, "low"].min()
-                high_allday = df_panel_allday.loc[:, "high"].max()
+                min_low_price = df_panel_allday.loc[:, "low"].min()
+                max_high_price = df_panel_allday.loc[:, "high"].max()
                 ##获取前一天的收盘价
                 pre_date = (context.current_dt + timedelta(days=-1)).strftime("%Y-%m-%d")
                 df_panel = get_price(stock_two, count=1, end_date=pre_date, frequency='daily',
@@ -222,8 +228,8 @@ def market_run(context, trade_stock_list):
                     order_target(stock_two, 0)
 
     time_sell = context.current_dt.strftime('%H:%M:%S')
-    cday = datetime.datetime.strptime('14:45:00', '%H:%M:%S').strftime('%H:%M:%S')
-    if time_sell > cday and len(trade_stock_list) > 0:
+    time_1440 = datetime.datetime.strptime('14:45:00', '%H:%M:%S').strftime('%H:%M:%S')
+    if time_sell > time_1440 and len(trade_stock_list) > 0:
         instead_stock = trade_stock_list
         for stock_remove in instead_stock:
             trade_stock_list.remove(stock_remove)
